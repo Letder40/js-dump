@@ -6,4 +6,4 @@ js-dump -u [url] -o [output_file]</p>
 
 <h3> installation :</h3>
 <p>chmod +x install.sh <br />
-./install.sh</p>
+sudo bash ./install.sh</p>
