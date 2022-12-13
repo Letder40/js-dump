@@ -80,10 +80,12 @@ if [[ -e ./$output && $output != "" ]]; then
 fi
 
 if [[ $output == "" ]]; then 
-  mkdir ./js-dumps
-else 
-  mkdir ./$output
+  output="./js-dumps"
+else
+  output="./$output"
 fi
+
+mkdir $output 
 
 curl -s $url -o jsdump.html
 targets=$( cat jsdump.html | grep -oP 'src=".*?.js"' | sed 's/src=//g' | sed 's/\///' | tr -d '"' | grep -Ev "https:|http:" )
@@ -100,10 +102,11 @@ totalScripts=$num
 let num=0
 
 for target in $targets; do
-    wget "$url$target" -O ./js-dumps/${names[$num]} -o /dev/null
+    wget "$url$target" -O $output/${names[$num]} -o /dev/null
     echo -ne "\t${yellow}Scripts dumped${end} : ${green}$num${end}/$totalScripts                     \r"
     let num+=1 
 done
+echo -e "\t${yellow}Scripts dumped${end} : ${green}$num${end}/$totalScripts                     "
 
 if [[ $remoteTargets != "" ]]; then
   declare -a remoteNames
@@ -117,9 +120,14 @@ if [[ $remoteTargets != "" ]]; then
   totalScripts=$num
   let num=0
   for target in $remoteTargets; do
-    wget "$target" -O ./js-dumps/remote-${remoteNames[$num]} -o /dev/null
+    wget "$target" -O $output/remote-${remoteNames[$num]} -o /dev/null
     echo -ne "\t${yellow}Remote Scripts dumped${end} : ${green}$num${end}/$totalScripts                     \r"
     let num+=1 
   done
+echo -e "\t${yellow}Scripts dumped${end} : ${green}$num${end}/$totalScripts                     "
 fi
+
+cat jsdump.html | grep -oP "<script.*?</script>" | grep -v "<script src" 1> $output/inline_scripts.js 2>/dev/null  
+echo -e "\t${yellow}Dumping inline scritps${end}...\n                      "
+sleep 1
 rm jsdump.html
