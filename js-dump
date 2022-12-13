@@ -1,0 +1,121 @@
+#!/bin/bash
+
+# Color pallete
+red="\e[91m"
+yellow="\e[33m"
+end="\e[0m"
+green="\e[32m"
+blue="\e[34m"
+
+#ctrl c
+trap ctrl_c int
+
+function ctrl_c {
+  echo -e "\n\t${red}[!] exiting...${end}"
+  sleep 1
+  exit 1
+}
+
+function help() {
+  echo -e "\t${green}usage of js-dump :\n\t--------------------------------"
+  echo -e "\t${yellow}js-dump${end} -u <url>"
+  echo -e "\t${yellow}js-dump${end} -u <url> -o <output_file>\n"
+  exit 0
+}
+
+declare -i parameter_counter
+while getopts "hu:o:" arg; do
+  case $arg in
+    h) 
+      help
+      ;;
+    u)
+      url=$OPTARG
+      let parameter_counter+=1
+      ;;
+    o)
+      output=$OPTARG
+  esac
+done
+
+if [[ $parameter_counter != 1 ]]; then
+  help
+fi
+
+if [[ $url =~ http://.* || $url =~ https://.* ]]; then
+  url_checker=1
+fi
+
+if [[ $url_checker != 1 ]]; then
+  echo -e "\t${red}[!] url invalid ${end}"
+  exit 1
+fi
+
+if [[ -e ./js-dumps && $output == "" ]]; then 
+  echo -ne "\t${blue}[?]${end} file ${yellow}js-dumps${end} exists; Do you want to delete it? [Y/n] : "
+  read response
+  if [[ $response != "y" && $response != "Y" && $response != "" ]]; then
+    echo -e "\n\t${red}[!] exiting...${end}"
+    sleep 1
+    exit 1
+  else
+    rm -r ./js-dumps
+  fi
+fi
+
+if [[ -e ./$output && $output != "" ]]; then
+  echo -ne "\t${blue}[?]${end} file $output exists; Do you want to delete it? [Y/n] : "
+  read response
+  if [[ $response != "y" && $response != "Y" && $response != "" ]]; then
+    echo -e "\n\t${red}[!] exiting...${end}"
+    sleep 1
+    exit 1
+  else 
+    rm -r ./$output
+  fi
+fi
+
+if [[ $output == "" ]]; then 
+  mkdir ./js-dumps
+else 
+  mkdir ./$output
+fi
+
+curl -s $url -o jsdump.html
+targets=$( cat jsdump.html | grep -oP 'src=".*?.js"' | sed 's/src=//g' | sed 's/\///' | tr -d '"' | grep -Ev "https:|http:" )
+remoteTargets=$( cat jsdump.html | grep -oP 'src=".*?.js"' | sed 's/src=//g' | grep -E "https:|http:" | tr -d '"')
+declare -a names
+declare -i num
+let num=0
+for name in $( cat jsdump.html | grep -oP 'src=".*?.js"' | sed 's/src=//g' | grep -vE "http:|https:" | tr -d '"' | awk '{ print $NF }' FS=/ ); do
+  names[$num]=$name
+  let num+=1
+done
+
+totalScripts=$num
+let num=0
+
+for target in $targets; do
+    wget "$url$target" -O ./js-dumps/${names[$num]} -o /dev/null
+    echo -ne "\t${yellow}Scripts dumped${end} : ${green}$num${end}/$totalScripts                     \r"
+    let num+=1 
+done
+
+if [[ $remoteTargets != "" ]]; then
+  declare -a remoteNames
+  let num=0
+  
+  for name in $( cat jsdump.html | grep -oP 'src=".*?.js"' | sed 's/src=//g' | grep -E "http:|https:" | tr -d '"' | awk '{ print $NF }' FS=/ ); do
+    remoteNames[$num]=$name
+    let num+=1
+  done
+  
+  totalScripts=$num
+  let num=0
+  for target in $remoteTargets; do
+    wget "$target" -O ./js-dumps/remote-${remoteNames[$num]} -o /dev/null
+    echo -ne "\t${yellow}Remote Scripts dumped${end} : ${green}$num${end}/$totalScripts                     \r"
+    let num+=1 
+  done
+fi
+
